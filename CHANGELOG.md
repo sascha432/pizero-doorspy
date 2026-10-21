@@ -2,6 +2,11 @@
 
 Newest first. Dates are when the change landed on the camera. "Deploy" means `tools/deploy.sh`; most entries only needed `tools/push.sh`.
 
+## 2026-10-21 — MJPEG encoder lingers
+
+### Fixed
+- **Camera went black overnight** ("No frames … on the doorspy detect stream"): clients that grab one MJPEG frame a minute (hassctrl tile previews) started and stopped the hardware MJPEG encoder each time; after a few hundred cycles the VC4 codec driver oopsed and leaked CMA memory, so no encoder (H.264 included) could start until a reboot. The MJPEG encoder now keeps running `MJPEG_LINGER` (300 s) after the last client leaves, and snapshots reuse its frames while it runs.
+
 ## 2026-10-20 — web UI, Frigate gating, lights with a job
 
 ### Added

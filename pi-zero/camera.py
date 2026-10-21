@@ -40,7 +40,7 @@ DEFAULTS = {
     "fps": 15,
     "h264_bitrate": 2_500_000,
     "mjpeg_bitrate": 6_000_000,    # VC4 rate control lands at ~half: ~3 Mbit/s, ~25 KB/frame
-                                   # only spent while a stream client is connected
+                                   # only spent while a stream client is connected (+ MJPEG_LINGER)
     "snapshot_quality": 80,
     "hflip": False,
     "vflip": False,
@@ -49,6 +49,7 @@ DEFAULTS = {
 SENSOR_SIZE = (1296, 972)          # 2x2 binned full field of view
 RTSP_URL = "rtsp://127.0.0.1:8554/cam"
 HTTP_PORT = 8080
+MJPEG_LINGER = 300                 # s the MJPEG encoder keeps running after the last client left
 SETTINGS_FILE = os.environ.get("CAMERA_SETTINGS", "/var/lib/doorspy/camera.json")
 STREAM_AUTH_FILE = os.environ.get("STREAM_AUTH", "/var/lib/doorspy/stream.auth")   # guest login for :8080
 WEB_AUTH_FILE = os.environ.get("WEB_AUTH", "/var/lib/doorspy/web.auth")            # admin login (web UI)
@@ -253,6 +254,7 @@ class Camera:
         self.mjpeg = None
         self.mjpeg_buf = FrameBuffer()
         self.mjpeg_clients = 0
+        self.mjpeg_stop_timer = None
         self.mjpeg_lock = threading.Lock()     # also serialises reconfigure
         self.h264 = None
         self._configure()
@@ -309,20 +311,34 @@ class Camera:
     def mjpeg_join(self):
         with self.mjpeg_lock:
             self.mjpeg_clients += 1
-            if self.mjpeg_clients == 1:
+            if self.mjpeg_stop_timer:
+                self.mjpeg_stop_timer.cancel()
+                self.mjpeg_stop_timer = None
+            if not self.mjpeg:
                 self._start_mjpeg()
 
     def mjpeg_leave(self):
+        # The encoder lingers: pollers that grab one frame a minute would otherwise start and
+        # stop it each time, and after a few hundred cycles the VC4 codec driver oopses and
+        # leaks CMA memory - no frames on any stream until a reboot.
         with self.mjpeg_lock:
             self.mjpeg_clients -= 1
-            if self.mjpeg_clients == 0:
+            if self.mjpeg_clients == 0 and self.mjpeg:
+                self.mjpeg_stop_timer = threading.Timer(MJPEG_LINGER, self._linger_done)
+                self.mjpeg_stop_timer.daemon = True
+                self.mjpeg_stop_timer.start()
+
+    def _linger_done(self):
+        with self.mjpeg_lock:
+            self.mjpeg_stop_timer = None
+            if self.mjpeg_clients == 0 and self.mjpeg:
                 self.picam2.stop_encoder(self.mjpeg)
                 self.mjpeg = None
                 log.info("mjpeg encoder stopped")
 
     def snapshot(self):
-        # While a stream is running, reuse its latest hardware-encoded frame.
-        if self.mjpeg_clients and self.mjpeg_buf.frame:
+        # While the MJPEG encoder runs, reuse its latest hardware-encoded frame.
+        if self.mjpeg and self.mjpeg_buf.frame:
             return self.mjpeg_buf.frame
         with self.mjpeg_lock:          # not during a reconfigure
             flat = self.picam2.capture_array("lores").reshape(-1)

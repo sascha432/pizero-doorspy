@@ -1,6 +1,6 @@
 # DoorSpy Camera
 
-
+<img src="docs/images/doorspy1.png" width="420" alt="doorspy in its printed peephole case: camera lens, PIR dome, three power LEDs and the button; the hollow M12 bolt goes through the door">
 
 WiFi door camera built on a Raspberry Pi Zero W. It does no video processing on the CPU:
 one camera feeds the Pi's two hardware encoders. An ESP32 dashboard shows live MJPEG, and a

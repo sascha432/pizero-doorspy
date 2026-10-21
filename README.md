@@ -108,9 +108,6 @@ CHANGELOG.md          what changed when, newest first
 - [x] Power LED turns on with the PIR
 - [x] Web UI (camera, lights, sensors, Frigate modes, system) — 2026-10-20: API tested on the device over IPv6 and IPv4 (controls, reconfigure, lights, Frigate gate round-trip, password change); the page itself still needs a look in a browser
 - [x] Software for the button, power LED and WS2812 (WS2812 data-line fault fixed in hardware)
-- [ ] Print and fit the peephole case (`stl/`)
-- [ ] Mount the camera upright (it's currently hanging sideways; see [rotation](docs/configuration.md#orientation))
-- [ ] DHCP reservation for `doorspy`
 - [ ] Pi 4: Frigate for motion-triggered recording and person detection, linked to Home Assistant (config ready, see [docs/pi4.md](docs/pi4.md))
 - [x] Face recognition: Frigate built-in, small model, runs on the Pi 4 (about 175 ms per face)
 - [x] Face recognition end to end: seeded with 6 snapshots, first walk-by recognised as "Sascha" at 90% (single attempts 87–92%)

@@ -1,0 +1,7 @@
+[Unit]
+Description=doorspy: reconnect WiFi if wlan0 is down
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/doorspy/wifi-watchdog.sh

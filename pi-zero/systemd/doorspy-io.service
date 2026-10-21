@@ -1,0 +1,17 @@
+[Unit]
+Description=doorspy I/O over MQTT (power LED, WS2812, button, PIR, Frigate gate)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# root: /sys/class/pwm is root-only. No User= line, so install.sh leaves it as root.
+EnvironmentFile=/etc/doorspy/doorspy.env
+# control socket for the web UI at /run/doorspy/io.sock, owned by the camera service's user
+RuntimeDirectory=doorspy
+Environment=SOCKET_USER=pispy
+ExecStart=/usr/bin/python3 -u /opt/doorspy/doorspy_io.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

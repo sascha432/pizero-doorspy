@@ -1,0 +1,64 @@
+# Frigate 0.18.2 config for doorspy. Docs: https://docs.frigate.video
+# Host Mosquitto has allow_anonymous true. If that changes, add
+#   user: "{FRIGATE_MQTT_USER}" / password: "{FRIGATE_MQTT_PASSWORD}" and set them in compose.
+mqtt:
+  enabled: true
+  host: host.docker.internal
+  port: 1883
+
+# No accelerator on the Pi 4: object detection on the CPU. Fine for one door at 5 fps.
+detectors:
+  cpu:
+    type: cpu
+    num_threads: 3
+
+# go2rtc pulls the Zero's stream ONCE; Frigate, live view and any viewer read the restream.
+go2rtc:
+  streams:
+    doorspy:
+      - rtsp://192.168.0.216:8554/cam
+
+cameras:
+  doorspy:          # same name as the go2rtc stream -> used for low-latency live view
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/doorspy
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+            - record
+      output_args:
+        record: preset-record-generic   # H.264 copied as-is, no re-encode
+    detect:
+      enabled: true # 0.18 defaults to false: records, but never detects anything
+      width: 1280   # full stream size: keeps faces large enough for recognition
+      height: 768
+      fps: 5
+    objects:
+      track:
+        - person
+
+# Keep only footage with motion; alerts/detections kept 30 days.
+record:
+  enabled: true
+  motion:
+    days: 3
+  alerts:
+    retain:
+      days: 30
+      mode: motion
+  detections:
+    retain:
+      days: 30
+      mode: motion
+
+snapshots:
+  enabled: true
+  retain:
+    default: 30
+
+# Docs say AVX/AVX2 (x86) is required, but the small model (YuNet + FaceNet TFLite) runs on
+# the Pi 4 (~175 ms/face). Upload one photo per person first, see docs/pi4.md.
+face_recognition:
+  enabled: true
+  model_size: small

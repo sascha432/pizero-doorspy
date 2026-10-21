@@ -1,0 +1,30 @@
+# doorspy MediaMTX: RTSP + WebRTC passthrough of the camera's H.264, nothing else.
+logLevel: info
+
+rtsp: true
+rtspTransports: [udp, tcp]
+rtspAddress: :8554
+webrtc: true
+webrtcAddress: :8889
+rtmp: false
+hls: false
+srt: false
+moq: false
+
+authInternalUsers:
+  # only the local camera service may publish
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: publish
+  # anyone on the LAN may watch
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+
+paths:
+  cam:
+    source: publisher

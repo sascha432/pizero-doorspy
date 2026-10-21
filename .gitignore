@@ -1,0 +1,5 @@
+*.log
+.pio/
+.vscode/
+.env
+__pycache__/

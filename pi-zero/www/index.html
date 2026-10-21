@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>doorspy</title>
+<style>
+  :root { --bg:#111417; --card:#1b2026; --line:#2b323b; --fg:#e6e9ee; --dim:#8b95a3; --acc:#4da3ff; --ok:#3ccf7a; --warn:#f0b43c; --bad:#f25f5c; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:2; flex-wrap:wrap }
+  header h1 { font-size:18px; margin:0 12px 0 0 }
+  .chips { display:flex; gap:6px; flex-wrap:wrap }
+  .chip { font-size:12px; padding:2px 8px; border-radius:10px; background:var(--card); border:1px solid var(--line); color:var(--dim) }
+  .chip.on { border-color:var(--ok); color:var(--ok) } .chip.off { border-color:var(--bad); color:var(--bad) } .chip.warn { border-color:var(--warn); color:var(--warn) }
+  nav { display:flex; border-bottom:1px solid var(--line); overflow-x:auto }
+  nav button { flex:1; min-width:90px; padding:10px; background:none; border:0; border-bottom:2px solid transparent; color:var(--dim); font:inherit; cursor:pointer }
+  nav button.active { color:var(--fg); border-bottom-color:var(--acc) }
+  main { padding:16px; max-width:1100px; margin:0 auto }
+  section.tab { display:none; gap:16px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)) } section.tab.active { display:grid }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px }
+  .card h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); margin:0 0 12px }
+  .card.wide { grid-column:1 / -1 }
+  .row { display:flex; align-items:center; gap:10px; margin:8px 0 } .row label:first-child { flex:0 0 120px; color:var(--dim) }
+  .row input[type=range] { flex:1 } .row .val { width:60px; text-align:right; font-variant-numeric:tabular-nums }
+  input, select, button { font:inherit } input[type=number], input[type=text], input[type=password], select { background:#0e1114; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; width:100% }
+  input[type=number] { width:110px } input.col { width:60px; height:34px; padding:0; border:0; background:none }
+  button.btn { background:#262d36; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 12px; cursor:pointer } button.btn:hover { border-color:var(--acc) }
+  button.btn.primary { background:var(--acc); border-color:var(--acc); color:#06131f } button.btn.danger { border-color:var(--bad); color:var(--bad) }
+  button:disabled { opacity:.45; cursor:default }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden } .seg button { background:none; border:0; color:var(--dim); padding:6px 12px; cursor:pointer } .seg button.on { background:var(--acc); color:#06131f } .seg button:disabled { opacity:.35 }
+  .switch { position:relative; width:42px; height:24px; flex:0 0 42px } .switch input { opacity:0; width:0; height:0 } .switch span { position:absolute; inset:0; background:#3a4450; border-radius:12px; transition:.15s } .switch span:before { content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s } .switch input:checked+span { background:var(--ok) } .switch input:checked+span:before { transform:translateX(18px) }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px } .tile { background:#0e1114; border-radius:8px; padding:10px } .tile .k { font-size:12px; color:var(--dim) } .tile .v { font-size:18px; margin-top:2px } .tile.ok .v { color:var(--ok) } .tile.bad .v { color:var(--bad) } .tile.warn .v { color:var(--warn) }
+  #preview { width:100%; aspect-ratio:5/3; background:#000; border-radius:8px; display:block; object-fit:contain }
+  pre.log { background:#0e1114; padding:10px; border-radius:8px; font-size:12px; max-height:420px; overflow:auto; white-space:pre-wrap; margin:0 }
+  .badge { font-size:12px; padding:2px 8px; border-radius:10px; background:#0e1114; border:1px solid var(--line); color:var(--dim) } .badge.ON { color:var(--ok); border-color:var(--ok) } .badge.OFF { color:var(--dim) } .badge.motion { color:var(--warn); border-color:var(--warn); animation:pulse 1s infinite }
+  @keyframes pulse { 50% { opacity:.4 } }
+  #chip-busy { border-color:var(--acc); color:var(--acc); animation:pulse 1s infinite }
+  button.btn.wait { opacity:.6; pointer-events:none }
+  .hint { color:var(--dim); font-size:13px } .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#262d36; color:var(--fg); padding:10px 16px; border-radius:8px; border:1px solid var(--line); display:none; max-width:90vw; z-index:5 } #toast.bad { border-color:var(--bad) } #toast.ok { border-color:var(--ok) }
+  .busy { opacity:.5; pointer-events:none }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px } .grid2 label { color:var(--dim); font-size:13px; display:block }
+  table.form { width:100% } table.form td { padding:4px 0 } table.form td:first-child { color:var(--dim); width:45% }
+</style>
+</head>
+<body>
+<header>
+  <h1>doorspy</h1>
+  <div class="chips">
+    <span class="chip" id="chip-cam">camera</span><span class="chip" id="chip-io">doorspy-io</span>
+    <span class="chip" id="chip-mqtt">mqtt</span><span class="chip" id="chip-pir">pir</span><span class="chip" id="chip-temp">— °C</span>
+    <span class="chip" id="chip-busy" style="display:none">working…</span>
+  </div>
+</header>
+<nav>
+  <button data-tab="camera" class="active">Camera</button><button data-tab="lights">Lights</button>
+  <button data-tab="sensors">Sensors</button><button data-tab="system">System</button>
+</nav>
+<main>
+
+<!-- ===================== Camera ===================== -->
+<section class="tab active" id="tab-camera">
+  <div class="card wide">
+    <div class="row" style="margin-top:0"><h2 style="margin:0;flex:1">Preview</h2>
+      <label><input type="checkbox" id="preview-on" checked> live MJPEG (uses the encoder while open)</label></div>
+    <img id="preview" alt="">
+    <div class="hint" id="meta">—</div>
+  </div>
+
+  <div class="card">
+    <h2>Image (live)</h2>
+    <div id="sliders"></div>
+    <div class="row"><label>White balance</label>
+      <select id="AwbMode"><option value="0">Auto</option><option value="1">Incandescent</option><option value="2">Tungsten</option><option value="3">Fluorescent</option><option value="4">Indoor</option><option value="5">Daylight</option><option value="6">Cloudy</option></select></div>
+    <div class="row"><label>Noise reduction</label>
+      <select id="NoiseReductionMode"><option value="0">Off</option><option value="1">Fast</option><option value="2">High quality</option><option value="3">Minimal</option></select></div>
+    <div class="row"><label>Auto exposure</label><label class="switch"><input type="checkbox" id="AeEnable" checked><span></span></label></div>
+    <div class="row"><label>Exposure µs</label><input type="number" id="ExposureTime" min="100" max="500000" step="100"></div>
+    <div class="row"><label>Analogue gain</label><input type="number" id="AnalogueGain" min="1" max="16" step="0.1"></div>
+    <div class="actions"><button class="btn" id="image-reset">Reset image to defaults</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Stream (restarts the camera, ~3 s)</h2>
+    <div class="row"><label>Resolution</label>
+      <select id="res"><option value="1280x768,800x480">1280×768 / 800×480 (5:3, full view)</option><option value="1280x720,800x450">1280×720 / 800×450 (16:9)</option><option value="1024x614,640x384">1024×614 / 640×384 (5:3, light)</option><option value="1296x972,800x600">1296×972 / 800×600 (4:3, sensor)</option></select></div>
+    <div class="row"><label>Frame rate</label><input type="number" id="fps" min="5" max="30"> <span class="hint">fps, 5–30</span></div>
+    <div class="row"><label>H.264</label><input type="number" id="h264_bitrate" min="0.5" max="10" step="0.1"> <span class="hint">Mbit/s max (VBR)</span></div>
+    <div class="row"><label>MJPEG</label><input type="number" id="mjpeg_bitrate" min="1" max="20" step="0.5"> <span class="hint">Mbit/s target, lands at ~half</span></div>
+    <div class="row"><label>Snapshot</label><input type="number" id="snapshot_quality" min="10" max="100"> <span class="hint">JPEG quality</span></div>
+    <div class="row"><label>Flip</label><label><input type="checkbox" id="hflip"> horizontal</label> <label><input type="checkbox" id="vflip"> vertical</label></div>
+    <div class="actions"><button class="btn primary" id="stream-apply">Apply</button><button class="btn" id="stream-reset">Reset everything to defaults</button></div>
+  </div>
+</section>
+
+<!-- ===================== Lights ===================== -->
+<section class="tab" id="tab-lights">
+  <div class="card" id="light-power">
+    <div class="row" style="margin-top:0"><h2 style="margin:0;flex:1">Power LED</h2><label class="switch"><input type="checkbox" data-light="power" data-k="state"><span></span></label></div>
+    <div class="row"><label>Brightness</label><input type="range" min="1" max="255" data-light="power" data-k="brightness"><span class="val">—</span></div>
+    <div class="hint">GPIO13 PWM 10 kHz through the MOSFET, EN on GPIO18. Fade time: DEFAULT_TRANSITION (Sensors tab).</div>
+    <h2 style="margin-top:16px">On motion (PIR)</h2>
+    <div class="row"><label>Enable</label><label class="switch"><input type="checkbox" id="POWER_ON_MOTION"><span></span></label><span class="badge" id="power-boost">—</span></div>
+    <div class="row"><label>Brightness</label><input type="number" id="POWER_MOTION_BRIGHTNESS" min="1" max="100"> <span class="hint">%</span></div>
+    <div class="row"><label>Hold</label><input type="number" id="POWER_MOTION_HOLD" min="1" step="1"> <span class="hint">s after the last trigger (independent of PIR_HOLD)</span></div>
+    <div class="hint">Fades up on each PIR trigger and back to the state set here / in Home Assistant after the hold. A higher HA brightness wins.</div>
+  </div>
+  <div class="card" id="light-rgb">
+    <div class="row" style="margin-top:0"><h2 style="margin:0;flex:1">RGB (WS2812)</h2><label class="switch"><input type="checkbox" data-light="rgb" data-k="state"><span></span></label></div>
+    <div class="row"><label>Brightness</label><input type="range" min="1" max="255" data-light="rgb" data-k="brightness"><span class="val">—</span></div>
+    <div class="row"><label>Colour</label><input type="color" data-light="rgb" data-k="color" class="col"></div>
+    <div class="row"><label>Mode</label><select data-light="rgb" data-k="effect" style="width:auto"><option value="none">solid</option><option value="rainbow">rainbow</option><option value="pulse">pulsing</option><option value="flash">flashing</option></select></div>
+    <div class="row" id="speed-row"><label>Speed</label><input type="number" id="speed" min="0.1" step="0.1"> <span class="hint">s per cycle (fixed: Home Assistant only picks the mode)</span></div>
+    <div class="hint">This is the idle state (also what Home Assistant controls). The status indicator below overrides it while active.</div>
+    <h2 style="margin-top:16px">Frigate status indicator</h2>
+    <div class="row"><label>Enable</label><label class="switch"><input type="checkbox" id="RGB_INDICATOR"><span></span></label><span class="badge" id="rgb-ind">—</span></div>
+    <table class="form" id="ind-table">
+      <tr><td></td><td class="hint">colour · mode · s per cycle</td></tr>
+      <tr><td>Recording</td><td><input type="color" id="RGB_RECORD_COLOR" class="col"> <select id="RGB_RECORD_MODE" class="imode"></select> <input type="number" id="RGB_RECORD_PERIOD" min="0.1" step="0.1" style="width:70px"> <button class="btn" data-test="record">Test 5 s</button></td></tr>
+      <tr><td>Person</td><td><input type="color" id="RGB_PERSON_COLOR" class="col"> <select id="RGB_PERSON_MODE" class="imode"></select> <input type="number" id="RGB_PERSON_PERIOD" min="0.1" step="0.1" style="width:70px"> <button class="btn" data-test="person">Test</button></td></tr>
+      <tr><td>Face</td><td><input type="color" id="RGB_FACE_COLOR" class="col"> <select id="RGB_FACE_MODE" class="imode"></select> <input type="number" id="RGB_FACE_PERIOD" min="0.1" step="0.1" style="width:70px"> <button class="btn" data-test="face">Test</button></td></tr>
+    </table>
+    <div class="row"><label>Hold</label><input type="number" id="INDICATOR_HOLD" min="1" step="1"> <span class="hint">s; person/face stay this long after Frigate stops tracking the person. Priority face &gt; person &gt; recording.</span></div>
+    <div class="hint">Recording = while the PIR hold is active (PIR_HOLD) and recording is switched on; decided locally, no MQTT. Person = while Frigate tracks a person, face = while that person has a recognised face (Frigate needs a few seconds after the PIR to start the stream and detect; a known face goes straight to green). Test shows the saved style for the hold time, then the light goes back to its idle state.</div>
+  </div>
+  <div class="card wide"><div class="actions" style="margin-top:0"><button class="btn primary" id="env-save-lights">Save (restarts doorspy-io, lights go off briefly)</button></div></div>
+  <div class="card wide hint" id="io-missing" style="display:none">doorspy-io isn't running or its socket is missing — the lights and sensors can't be reached. See the System tab.</div>
+</section>
+
+<!-- ===================== Sensors ===================== -->
+<section class="tab" id="tab-sensors">
+  <div class="card">
+    <h2>PIR motion sensor</h2>
+    <div class="row"><label>State</label><span class="badge" id="pir-badge">—</span><span class="hint" id="pir-hold"></span></div>
+    <div class="row"><label>Button</label><span id="button-last" class="hint">no event yet</span></div>
+    <div class="row"><label>MQTT</label><span class="badge" id="mqtt-badge">—</span></div>
+  </div>
+  <div class="card">
+    <h2>Frigate (Pi 4)</h2>
+    <table class="form">
+      <tr><td>Camera (stream + decoding)</td><td><span class="seg" data-gate="GATE_CAMERA"></span> <span class="badge" id="act-camera">—</span></td></tr>
+      <tr><td>Recording</td><td><span class="seg" data-gate="GATE_RECORD"></span> <span class="badge" id="act-record">—</span></td></tr>
+      <tr><td>Motion detection</td><td><span class="seg" data-gate="GATE_MOTION"></span> <span class="badge" id="act-motion">—</span></td></tr>
+      <tr><td>Person detection + faces</td><td><span class="seg" data-gate="GATE_DETECT"></span> <span class="badge" id="act-detect">—</span></td></tr>
+      <tr><td>PIR hold</td><td><input type="number" id="HOLD_SECONDS" min="1" step="1"> s after the last motion</td></tr>
+    </table>
+    <div class="hint"><b>Camera</b> is Frigate's enable switch for this camera: off stops its ffmpeg decoding and the stream pull from the Zero, so <b>Camera = PIR</b> is what keeps the Pi 4 idle while nobody is at the door (Frigate needs a few seconds to start the stream after a trigger). The other three only matter while the camera is on; leave them at Always unless you want finer control. Person detection needs motion detection. The badge shows what Frigate reports.</div>
+  </div>
+  <div class="card wide">
+    <h2>doorspy-io settings (/etc/doorspy/doorspy.env)</h2>
+    <div class="grid2">
+      <div><label>PIR_HOLD — motion stays ON this long (s), 0 = raw sensor</label><input type="number" id="PIR_HOLD" min="0" step="1"></div>
+      <div><label>BUTTON_HOLD — long press after (s)</label><input type="number" id="BUTTON_HOLD" min="0.1" step="0.1"></div>
+      <div><label>DEFAULT_TRANSITION — light fade (s)</label><input type="number" id="DEFAULT_TRANSITION" min="0" step="0.1"></div>
+      <div><label>MQTT_HOST</label><input type="text" id="MQTT_HOST"></div>
+      <div><label>MQTT_PORT</label><input type="number" id="MQTT_PORT" min="1" max="65535"></div>
+      <div><label>FRIGATE_CAMERA — camera name in Frigate</label><input type="text" id="FRIGATE_CAMERA"></div>
+      <div><label>TEMP_INTERVAL — CPU temperature to MQTT every (s)</label><input type="number" id="TEMP_INTERVAL" min="10" step="10"></div>
+    </div>
+    <div class="actions"><button class="btn primary" id="env-save">Save and restart doorspy-io</button><span class="hint">GPIO numbers are wiring and stay in the file.</span></div>
+  </div>
+</section>
+
+<!-- ===================== System ===================== -->
+<section class="tab" id="tab-system">
+  <div class="card wide"><h2>Status</h2><div class="tiles" id="tiles"></div></div>
+  <div class="card">
+    <h2>Services</h2>
+    <div class="actions">
+      <button class="btn" data-svc="doorspy-cam">Restart camera</button>
+      <button class="btn" data-svc="mediamtx">Restart MediaMTX (+ camera)</button>
+      <button class="btn" data-svc="doorspy-io">Restart doorspy-io</button>
+      <button class="btn danger" id="reboot">Reboot Pi</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Web login</h2>
+    <div class="grid2">
+      <div><label>User</label><input type="text" id="pw-user"></div>
+      <div><label>Current password</label><input type="password" id="pw-current"></div>
+      <div><label>New password (min 6)</label><input type="password" id="pw-new"></div>
+      <div><label>Repeat</label><input type="password" id="pw-new2"></div>
+    </div>
+    <div class="actions"><button class="btn primary" id="pw-save">Change password</button></div>
+    <h2 style="margin-top:16px">Stream login (port 8080)</h2>
+    <div class="grid2">
+      <div><label>User</label><input type="text" id="st-user"></div>
+      <div><label>New password (min 6)</label><input type="password" id="st-new"></div>
+      <div><label>Repeat</label><input type="password" id="st-new2"></div>
+      <div><label>Your admin password</label><input type="password" id="st-admin"></div>
+    </div>
+    <div class="actions"><button class="btn primary" id="st-save">Change stream login</button></div>
+    <div class="hint">For <code>/api/stream.mjpeg</code> and <code>/api/snapshot.jpeg</code> on port 8080 (plain HTTP). The admin login works there too. Header for clients: <code id="st-header">Authorization: Basic …</code></div>
+  </div>
+  <div class="card wide">
+    <div class="row" style="margin-top:0"><h2 style="margin:0;flex:1">Log</h2>
+      <select id="log-unit" style="width:auto"><option>doorspy-cam</option><option>mediamtx</option><option>doorspy-io</option></select>
+      <button class="btn" id="log-refresh">Refresh</button></div>
+    <pre class="log" id="log">—</pre>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const MODES = ['always', 'pir', 'off'];
+const SLIDERS = [ // libcamera control, label, min, max, step, default
+  ['Brightness', 'Brightness', -1, 1, 0.05, 0], ['Contrast', 'Contrast', 0, 2, 0.05, 1],
+  ['Saturation', 'Saturation', 0, 2, 0.05, 1], ['Sharpness', 'Sharpness', 0, 4, 0.1, 1],
+  ['ExposureValue', 'Exposure EV', -8, 8, 0.5, 0]];
+const CONTROL_DEFAULTS = {AwbMode: 0, NoiseReductionMode: 1, AeEnable: true, ExposureTime: 20000, AnalogueGain: 1};
+let state = {camera: null, io: null, system: null}, tab = 'camera', pollTimer = null, ioEnv = {};
+let inflight = 0, lastAction = 0;   // actions in progress; time of the last user action (polls yield to it)
+let saving = false;                  // doorspy-io restarting after a Save: ignore state until it reports the new values
+
+// ---- plumbing ----
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  if (body) { inflight++; lastAction = Date.now(); $('#chip-busy').style.display = ''; }
+  try {
+    let r;
+    try { r = await fetch(path, opt); } catch (e) { throw new Error('camera service not reachable'); }
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  } finally {
+    if (body) { inflight--; lastAction = Date.now(); if (!inflight) $('#chip-busy').style.display = 'none'; }
+  }
+}
+// buttons: show that a click is being worked on and swallow repeat clicks until it's done
+document.addEventListener('click', e => {
+  const b = e.target.closest('button.btn'); if (!b || b.classList.contains('wait')) return;
+  b.classList.add('wait'); setTimeout(() => b.classList.remove('wait'), 400);
+  const un = () => { if (!inflight) b.classList.remove('wait'); else setTimeout(un, 100); }; setTimeout(un, 400);
+}, true);
+let toastTimer;
+function toast(msg, cls = 'bad') {
+  const t = $('#toast'); t.textContent = msg; t.className = cls; t.style.display = 'block';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.display = 'none', cls === 'bad' ? 6000 : 2500);
+}
+const guard = fn => async (...a) => { try { return await fn(...a); } catch (e) { toast(e.message); } };
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const fmtDur = s => s > 86400 ? `${(s / 86400).toFixed(1)} d` : s > 3600 ? `${(s / 3600).toFixed(1)} h` : `${Math.round(s / 60)} min`;
+function chip(id, text, cls) { const c = $(id); c.textContent = text; c.className = 'chip ' + (cls || ''); }
+
+// ---- tabs ----
+$$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(name) {
+  tab = name;
+  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $$('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + name));
+  preview(name === 'camera' && $('#preview-on').checked);
+  schedulePoll(0);
+}
+function preview(on) {
+  const img = $('#preview');
+  if (on && !img.dataset.on) { img.src = '/api/stream.mjpeg?' + Date.now(); img.dataset.on = '1'; }
+  if (!on && img.dataset.on) { img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; delete img.dataset.on; }
+}
+$('#preview-on').onchange = () => preview($('#preview-on').checked);
+document.addEventListener('visibilitychange', () => { if (document.hidden) preview(false); else showTab(tab); });
+
+// ---- polling per tab ----
+function schedulePoll(ms) {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(guard(async () => {
+    if (document.hidden) return;
+    if (inflight || saving || Date.now() - lastAction < 1500) return schedulePoll(500);   // never paint over a click
+    if (tab === 'camera') { const m = await api('/api/camera/meta'); Object.assign(state.camera, m); renderMeta(); schedulePoll(5000); }
+    else if (tab === 'lights' || tab === 'sensors') { const io = await api('/api/io/state').catch(e => ({error: e.message})); if (!inflight) { state.io = io; renderIo(); renderHeader(); } schedulePoll(2000); }
+    else { state.system = await api('/api/system/status'); state.io = await api('/api/io/state').catch(e => ({error: e.message})); renderSystem(); renderHeader(); schedulePoll(8000); }
+  }), ms);
+}
+
+// ---- header ----
+function renderHeader() {
+  const s = state.system || {}, io = state.io || {};
+  chip('#chip-cam', 'camera', 'on');
+  chip('#chip-io', 'doorspy-io', io.error ? 'off' : 'on');
+  chip('#chip-mqtt', 'mqtt', io.error ? '' : io.mqtt ? 'on' : 'off');
+  chip('#chip-pir', io.pir && io.pir.on ? 'motion' : 'pir', io.pir && io.pir.on ? 'warn' : '');
+  if (s.temperature != null) chip('#chip-temp', `${s.temperature.toFixed(1)} °C`, s.temperature > 70 ? 'warn' : '');
+}
+
+// ---- camera tab ----
+const sendControls = debounce(guard(async ctl => { await api('/api/camera/controls', ctl); }), 150);
+function buildSliders() {
+  const box = $('#sliders');
+  for (const [k, label, min, max, step, def] of SLIDERS) {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<label title="double-click the slider to reset">${label}</label><input type="range" id="${k}" min="${min}" max="${max}" step="${step}" value="${def}"><span class="val">${def}</span>`;
+    const inp = row.querySelector('input');
+    inp.oninput = () => { row.querySelector('.val').textContent = (+inp.value).toFixed(2); sendControls({[k]: +inp.value}); };
+    inp.ondblclick = () => { inp.value = def; inp.oninput(); };
+    box.appendChild(row);
+  }
+  for (const k of ['AwbMode', 'NoiseReductionMode']) $('#' + k).onchange = () => sendControls({[k]: +$('#' + k).value});
+  $('#AeEnable').onchange = () => { aeFields(); sendControls(exposureCmd()); };
+  $('#ExposureTime').onchange = $('#AnalogueGain').onchange = () => sendControls(exposureCmd());
+  $('#image-reset').onclick = guard(async () => {
+    const ctl = {...CONTROL_DEFAULTS}; for (const [k, , , , , def] of SLIDERS) ctl[k] = def;
+    await api('/api/camera/controls', ctl); state.camera.settings.controls = ctl; renderCamera(); toast('image controls reset', 'ok');
+  });
+}
+function aeFields() { const ae = $('#AeEnable').checked; $('#ExposureTime').disabled = ae; $('#AnalogueGain').disabled = ae; }
+function exposureCmd() { return {AeEnable: $('#AeEnable').checked, ExposureTime: +$('#ExposureTime').value || CONTROL_DEFAULTS.ExposureTime, AnalogueGain: +$('#AnalogueGain').value || 1}; }
+function renderCamera() {
+  const s = state.camera.settings, c = s.controls || {};
+  for (const [k, , , , , def] of SLIDERS) { const v = c[k] ?? def; $('#' + k).value = v; $('#' + k).nextElementSibling.textContent = (+v).toFixed(2); }
+  for (const k of ['AwbMode', 'NoiseReductionMode']) $('#' + k).value = c[k] ?? CONTROL_DEFAULTS[k];
+  $('#AeEnable').checked = c.AeEnable ?? true; $('#ExposureTime').value = c.ExposureTime ?? ''; $('#AnalogueGain').value = c.AnalogueGain ?? ''; aeFields();
+  $('#res').value = `${s.main_size.join('x')},${s.lores_size.join('x')}`;
+  if ($('#res').selectedIndex < 0) { const o = new Option(`${s.main_size.join('×')} / ${s.lores_size.join('×')} (custom)`, $('#res').value, true, true); $('#res').add(o); }
+  $('#fps').value = s.fps; $('#h264_bitrate').value = s.h264_bitrate / 1e6; $('#mjpeg_bitrate').value = s.mjpeg_bitrate / 1e6;
+  $('#snapshot_quality').value = s.snapshot_quality; $('#hflip').checked = s.hflip; $('#vflip').checked = s.vflip;
+  renderMeta();
+}
+function renderMeta() {
+  const m = (state.camera || {}).metadata || {};
+  const parts = [];
+  if (m.ExposureTime) parts.push(`exposure ${(m.ExposureTime / 1000).toFixed(1)} ms`);
+  if (m.AnalogueGain) parts.push(`gain ${m.AnalogueGain.toFixed(2)}×${m.DigitalGain ? ` (digital ${m.DigitalGain.toFixed(2)}×)` : ''}`);
+  if (m.ColourTemperature) parts.push(`${m.ColourTemperature} K`);
+  if (m.Lux != null) parts.push(`${m.Lux.toFixed(0)} lux`);
+  if (m.FrameDuration) parts.push(`${(1e6 / m.FrameDuration).toFixed(1)} fps`);
+  if (state.camera) parts.push(`${state.camera.mjpeg_clients} MJPEG client${state.camera.mjpeg_clients === 1 ? '' : 's'}`);
+  $('#meta').textContent = parts.join(' · ') || '—';
+}
+async function applyStream(body, msg) {
+  $('#tab-camera').classList.add('busy'); preview(false);
+  try {
+    const r = await api(body ? '/api/camera/settings' : '/api/camera/reset', body || {});
+    state.camera.settings = r.settings; renderCamera(); toast(msg, 'ok');
+  } finally { $('#tab-camera').classList.remove('busy'); preview($('#preview-on').checked); }
+}
+$('#stream-apply').onclick = guard(async () => {
+  const [main, lores] = $('#res').value.split(',').map(x => x.split('x').map(Number));
+  await applyStream({main_size: main, lores_size: lores, fps: +$('#fps').value, h264_bitrate: Math.round(+$('#h264_bitrate').value * 1e6),
+    mjpeg_bitrate: Math.round(+$('#mjpeg_bitrate').value * 1e6), snapshot_quality: +$('#snapshot_quality').value,
+    hflip: $('#hflip').checked, vflip: $('#vflip').checked}, 'camera reconfigured');
+});
+$('#stream-reset').onclick = guard(async () => { if (confirm('Reset all camera settings to the defaults?')) await applyStream(null, 'defaults restored'); });
+
+// ---- lights tab ----
+const dragging = new Set();
+$$('[data-light]').forEach(el => {
+  const key = el.dataset.light, k = el.dataset.k;
+  const send = guard(async () => {
+    let cmd;
+    if (k === 'state') cmd = {state: el.checked ? 'ON' : 'OFF'};
+    else if (k === 'brightness') cmd = {brightness: +el.value, state: 'ON'};
+    else if (k === 'color') { const h = el.value; cmd = {color: {r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16)}, state: 'ON'}; }
+    else if (k === 'effect') { cmd = {effect: el.value, state: 'ON'}; speedField(); }
+    try {
+      const r = await api('/api/io/light/' + key, cmd);
+      if (state.io && state.io.lights) state.io.lights[key] = r.state;
+    } catch (e) { if (state.io && state.io.lights) renderIo(); throw e; }   // put the control back
+  });
+  if (el.type === 'range') { el.oninput = () => { dragging.add(el); el.nextElementSibling.textContent = Math.round(el.value / 2.55) + '%'; }; el.onchange = () => { dragging.delete(el); send(); }; }
+  else if (el.type === 'color') { el.oninput = debounce(send, 200); }
+  else el.onchange = send;
+});
+function renderIo() {
+  const io = state.io || {};
+  $('#io-missing').style.display = io.error ? '' : 'none';
+  $('#io-missing').textContent = io.error ? `${io.error} — the lights and sensors can't be reached. See the System tab.` : '';
+  for (const card of ['power', 'rgb']) $('#light-' + card).classList.toggle('busy', !!io.error || !(io.lights || {})[card]);
+  for (const [key, l] of Object.entries(io.lights || {})) {
+    $$(`[data-light=${key}]`).forEach(el => {
+      if (dragging.has(el)) return;
+      const k = el.dataset.k;
+      if (k === 'state') el.checked = l.state === 'ON';
+      else if (k === 'brightness') { el.value = l.brightness; el.nextElementSibling.textContent = Math.round(l.brightness / 2.55) + '%'; }
+      else if (k === 'color' && l.color) el.value = '#' + [l.color.r, l.color.g, l.color.b].map(x => x.toString(16).padStart(2, '0')).join('');
+      else if (k === 'effect') { el.value = l.effect || 'none'; speedField(); }
+    });
+  }
+  // sensors
+  const pir = io.pir, b = $('#pir-badge');
+  b.textContent = io.error ? '—' : !pir ? 'unavailable' : pir.on ? 'MOTION' : 'clear';
+  b.className = 'badge ' + (pir && pir.on ? 'motion' : '');
+  $('#pir-hold').textContent = pir && pir.on && pir.hold_until ? `clears in ${Math.max(0, Math.round(pir.hold_until - Date.now() / 1000))} s` : '';
+  $('#button-last').textContent = io.button ? `${io.button.event} at ${new Date(io.button.at * 1000).toLocaleTimeString()}` : 'no event yet';
+  $('#mqtt-badge').textContent = io.error ? '—' : io.mqtt ? 'connected' : 'disconnected'; $('#mqtt-badge').className = 'badge ' + (io.mqtt ? 'ON' : 'OFF');
+  for (const f of ['camera', 'record', 'motion', 'detect']) {
+    const g = (io.frigate || {})[f] || {}, el = $('#act-' + f), camOff = f !== 'camera' && (io.frigate || {}).camera && io.frigate.camera.actual === 'OFF';
+    el.textContent = camOff ? `${g.actual || '—'} (camera off)` : g.actual || (io.error ? '—' : 'no reply from Frigate'); el.className = 'badge ' + (camOff ? '' : g.actual || '');
+    el.title = g.wanted != null ? `wanted: ${g.wanted ? 'ON' : 'OFF'}` : '';
+  }
+  const ind = io.indicators || {};
+  $('#power-boost').textContent = ind.power_motion ? 'boosted' : 'idle'; $('#power-boost').className = 'badge ' + (ind.power_motion ? 'ON' : '');
+  const tr = Object.values(ind.tracked || {}); $('#rgb-ind').textContent = (ind.rgb || 'idle') + (tr.length ? ` · Frigate tracks ${tr.length} person${tr.length > 1 ? 's' : ''}${tr.some(x => x) ? ', face known' : ''}` : ''); $('#rgb-ind').className = 'badge ' + (ind.rgb ? 'ON' : '');
+  if (io.env && !envDirty && !saving) { ioEnv = io.env; renderEnv(); }
+  $('#tab-sensors').classList.toggle('busy', !!io.error);
+}
+
+// ---- sensors: env + frigate gate ----
+let envDirty = false;
+const ENV_FIELDS = ['PIR_HOLD', 'BUTTON_HOLD', 'DEFAULT_TRANSITION', 'MQTT_HOST', 'MQTT_PORT', 'FRIGATE_CAMERA', 'HOLD_SECONDS', 'TEMP_INTERVAL',
+  'POWER_ON_MOTION', 'POWER_MOTION_BRIGHTNESS', 'POWER_MOTION_HOLD', 'RGB_INDICATOR', 'INDICATOR_HOLD',
+  ...['RECORD', 'PERSON', 'FACE'].flatMap(n => [`RGB_${n}_COLOR`, `RGB_${n}_MODE`, `RGB_${n}_PERIOD`])];
+$$('select.imode').forEach(sel => { for (const m of ['solid', 'pulse', 'flash']) sel.add(new Option(m, m)); });
+$$('[data-test]').forEach(b => b.onclick = guard(async () => {
+  if (envDirty) toast('unsaved changes: the test uses the saved style', 'ok');
+  await api('/api/io/indicate', {name: b.dataset.test});
+}));
+const PERIOD_KEY = {rainbow: 'RAINBOW_PERIOD', pulse: 'PULSE_PERIOD', flash: 'FLASH_PERIOD'};
+ENV_FIELDS.forEach(k => $('#' + k).oninput = () => envDirty = true);
+const envGet = k => { const el = $('#' + k); return el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.type === 'color' ? el.value.slice(1) : el.value; };
+const envSet = (k, v) => { const el = $('#' + k); if (el.type === 'checkbox') el.checked = v === '1'; else if (el.type === 'color') el.value = '#' + (v || '000000'); else el.value = v ?? ''; };
+// the speed field edits the period of the effect currently selected for the RGB light
+function speedField() {
+  const eff = $('[data-light=rgb][data-k=effect]').value, key = PERIOD_KEY[eff];
+  $('#speed-row').style.display = key ? '' : 'none';
+  if (key) { $('#speed').value = ioEnv[key] ?? ''; $('#speed').dataset.key = key; }
+}
+$('#speed').oninput = () => { ioEnv[$('#speed').dataset.key] = $('#speed').value; envDirty = true; };
+$$('.seg[data-gate]').forEach(seg => {
+  for (const m of MODES) { const b = document.createElement('button'); b.textContent = m; b.dataset.m = m; b.onclick = () => { ioEnv[seg.dataset.gate] = m; envDirty = true; fixGates(); renderGates(); }; seg.appendChild(b); }
+});
+// always > pir > off: nothing may be more "on" than the camera, and detect not more than motion
+function gateMin(key) { return Math.max(key === 'GATE_CAMERA' ? 0 : MODES.indexOf(ioEnv.GATE_CAMERA), key === 'GATE_DETECT' ? MODES.indexOf(ioEnv.GATE_MOTION) : 0); }
+function fixGates() {
+  for (const k of ['GATE_RECORD', 'GATE_MOTION', 'GATE_DETECT']) if (MODES.indexOf(ioEnv[k]) < gateMin(k)) ioEnv[k] = MODES[gateMin(k)];
+}
+function renderGates() {
+  $$('.seg[data-gate]').forEach(seg => {
+    const cur = ioEnv[seg.dataset.gate], minIdx = gateMin(seg.dataset.gate);
+    seg.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.m === cur); b.disabled = MODES.indexOf(b.dataset.m) < minIdx; });
+  });
+}
+function renderEnv() { ENV_FIELDS.forEach(k => envSet(k, ioEnv[k])); speedField(); renderGates(); }
+async function saveEnv() {
+  const set = {}; ENV_FIELDS.forEach(k => set[k] = envGet(k));
+  for (const g of ['GATE_CAMERA', 'GATE_RECORD', 'GATE_MOTION', 'GATE_DETECT', ...Object.values(PERIOD_KEY)]) if (ioEnv[g] != null) set[g] = ioEnv[g];
+  $('#tab-sensors').classList.add('busy'); $('#tab-lights').classList.add('busy'); saving = true;
+  try {
+    const r = await api('/api/io/env', set);
+    const want = r.changed || {};
+    envDirty = false; Object.assign(ioEnv, want); renderEnv();          // show what was saved, not what the old process still reports
+    toast('saved — doorspy-io is restarting, that takes about 15 s', 'ok');
+    // the old process may still answer for a moment: wait until the state carries the new values
+    for (let i = 0; i < 45; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const io = await api('/api/io/state').catch(() => null);
+      if (io && !io.error && io.env && Object.keys(want).every(k => io.env[k] === want[k])) {
+        saving = false; state.io = io; renderIo(); renderHeader(); toast('doorspy-io is back with the new settings', 'ok'); return;
+      }
+    }
+    toast('doorspy-io did not come back with the new settings — see the System tab log');
+  } finally { saving = false; $('#tab-sensors').classList.remove('busy'); $('#tab-lights').classList.remove('busy'); }
+}
+$('#env-save').onclick = guard(saveEnv); $('#env-save-lights').onclick = guard(saveEnv);
+
+// ---- system tab ----
+function renderSystem() {
+  const s = state.system || {}, t = [];
+  const tile = (k, v, cls = '') => t.push(`<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`);
+  tile('Temperature', s.temperature != null ? `${s.temperature.toFixed(1)} °C` : '—', s.temperature > 70 ? 'warn' : '');
+  tile('Throttling', s.throttled && s.throttled.flags.length ? s.throttled.flags.join(', ') : 'none', s.throttled && s.throttled.flags.length ? 'bad' : 'ok');
+  tile('WiFi', s.wifi && s.wifi.connection ? `${s.wifi.connection} ${s.wifi.signal_dbm != null ? s.wifi.signal_dbm + ' dBm' : ''}` : 'down', s.wifi && s.wifi.connection ? (s.wifi.signal_dbm < -70 ? 'warn' : 'ok') : 'bad');
+  tile('IP', s.wifi && s.wifi.ip || '—');
+  tile('Uptime', s.uptime ? fmtDur(s.uptime) : '—');
+  tile('Camera up', s.camera_uptime ? fmtDur(s.camera_uptime) : '—');
+  tile('Load', s.load ? s.load.map(x => x.toFixed(2)).join(' ') : '—');
+  tile('Memory free', s.memory_mb && s.memory_mb.MemAvailable != null ? `${s.memory_mb.MemAvailable} / ${s.memory_mb.MemTotal} MB` : '—');
+  tile('MJPEG clients', s.mjpeg_clients ?? '—');
+  for (const [u, st] of Object.entries(s.services || {})) tile(u, st, st === 'active' ? 'ok' : 'bad');
+  $('#tiles').innerHTML = t.join('');
+}
+$$('[data-svc]').forEach(b => b.onclick = guard(async () => {
+  const unit = b.dataset.svc;
+  if (!confirm(`Restart ${unit}?`)) return;
+  await api('/api/system/service', {unit, action: 'restart'}); toast(`${unit} restarting`, 'ok');
+  await waitBack();
+}));
+$('#reboot').onclick = guard(async () => {
+  if (!confirm('Reboot the Pi? The camera is away for about a minute.')) return;
+  await api('/api/system/service', {action: 'reboot'}); toast('rebooting…', 'ok');
+  await new Promise(r => setTimeout(r, 20000)); await waitBack();
+});
+async function waitBack() {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const s = await api('/api/system/status').catch(() => null);
+    if (s) { state.system = s; renderSystem(); renderHeader(); return; }
+  }
+}
+$('#log-refresh').onclick = guard(async () => { $('#log').textContent = '…'; const r = await api('/api/system/log?unit=' + $('#log-unit').value + '&lines=150'); $('#log').textContent = r.log || '(empty)'; $('#log').scrollTop = 1e9; });
+$('#log-unit').onchange = () => $('#log-refresh').onclick();
+$('#st-save').onclick = guard(async () => {
+  if ($('#st-new').value !== $('#st-new2').value) throw new Error('passwords differ');
+  const r = await api('/api/auth/stream', {current: $('#st-admin').value, user: $('#st-user').value, new: $('#st-new').value});
+  $('#st-header').textContent = 'Authorization: Basic ' + btoa(r.user + ':' + $('#st-new').value);
+  toast('stream login changed — update the clients that use it', 'ok');
+  $('#st-new').value = $('#st-new2').value = $('#st-admin').value = '';
+});
+$('#pw-save').onclick = guard(async () => {
+  if ($('#pw-new').value !== $('#pw-new2').value) throw new Error('passwords differ');
+  await api('/api/auth/password', {current: $('#pw-current').value, user: $('#pw-user').value, new: $('#pw-new').value});
+  toast('password changed — the browser will ask for it again', 'ok');
+  $('#pw-current').value = $('#pw-new').value = $('#pw-new2').value = '';
+});
+
+// ---- boot ----
+buildSliders();
+guard(async () => {
+  state = await api('/api/config');
+  renderCamera(); renderIo(); renderSystem(); renderHeader();
+  $('#pw-user').value = state.user || ''; $('#st-user').value = state.stream_user || 'guest';
+  preview($('#preview-on').checked);
+  schedulePoll(5000);
+})();
+</script>
+</body>
+</html>

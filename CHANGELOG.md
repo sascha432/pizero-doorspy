@@ -2,6 +2,11 @@
 
 Newest first. Dates are when the change landed on the camera. "Deploy" means `tools/deploy.sh`; most entries only needed `tools/push.sh`.
 
+## 2026-10-25 — RTSP and WebRTC need a login
+
+### Fixed
+- **RTSP (`:8554`) and WebRTC (`:8889`) were open to anyone on the LAN.** MediaMTX now asks `camera.py` about every client (`authMethod: http`): watching needs the stream login or the admin login, the same as port 8080, and only localhost may publish. A child process of `camera.py` answers on `127.0.0.1:8081`, because PyAV blocks the camera process while it connects the RTSP output MediaMTX is asking about. Deploy (`mediamtx.yml`), and give Frigate the login first: `pi4/frigate` now pulls `rtsp://{FRIGATE_DOORSPY_USER}:{FRIGATE_DOORSPY_PASSWORD}@…`, from `/opt/frigate/.env` (default `guest` / `password`); see [docs/pi4.md](docs/pi4.md#the-zeros-stream-login) for updating an existing Pi 4.
+
 ## 2026-10-21 — MJPEG encoder lingers
 
 ### Fixed

@@ -12,14 +12,19 @@ reconfigure the pipeline (about 3 s, stream clients stay connected).
 :8080 needs HTTP Basic auth: the stream login (/var/lib/doorspy/stream.auth, default
 guest / password, for stream clients) or the web UI's admin login. Both files are
 user:salt:pbkdf2-sha256, written by install.sh when missing and changed on the System tab.
+MediaMTX (RTSP, WebRTC) asks 127.0.0.1:8081 about every client, so the same logins protect those
+and only localhost may publish. That check runs in a child process: PyAV holds the GIL while it
+connects the RTSP output, and MediaMTX asks about that very publish.
 """
 import base64
 import binascii
 import hashlib
 import hmac
 import io
+import ipaddress
 import json
 import logging
+import multiprocessing
 import os
 import secrets
 import socket
@@ -49,6 +54,7 @@ DEFAULTS = {
 SENSOR_SIZE = (1296, 972)          # 2x2 binned full field of view
 RTSP_URL = "rtsp://127.0.0.1:8554/cam"
 HTTP_PORT = 8080
+MTX_AUTH_PORT = 8081               # MediaMTX authHTTPAddress (mediamtx.yml), 127.0.0.1 only
 MJPEG_LINGER = 300                 # s the MJPEG encoder keeps running after the last client left
 SETTINGS_FILE = os.environ.get("CAMERA_SETTINGS", "/var/lib/doorspy/camera.json")
 STREAM_AUTH_FILE = os.environ.get("STREAM_AUTH", "/var/lib/doorspy/stream.auth")   # guest login for :8080
@@ -503,6 +509,39 @@ class Handler(server.BaseHTTPRequestHandler):
             self.cam.mjpeg_leave()
 
 
+class MtxAuthHandler(server.BaseHTTPRequestHandler):
+    """MediaMTX's HTTP auth: 200 lets the RTSP/WebRTC client in, 401 makes it ask for a login.
+    Publishing only from localhost (camera.py itself), reading with the :8080 logins."""
+    auths = ()
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def do_POST(self):
+        try:
+            req = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", "0")), 65536)))
+            action, user, pw = req.get("action"), str(req.get("user") or ""), str(req.get("password") or "")
+            client = str(req.get("ip") or "").removeprefix("::ffff:")
+            if action == "publish":
+                ok = ipaddress.ip_address(client).is_loopback
+            elif action in ("read", "playback"):
+                ok = bool(user) and any(a.check(user, pw) for a in self.auths)
+                if user and not ok:
+                    log.warning("auth: failed %s login from %s", req.get("protocol"), client)
+            else:
+                ok = False
+        except (ValueError, AttributeError):
+            ok = False
+        self.send_response(200 if ok else 401)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def serve_mtx_auth(auths):
+    MtxAuthHandler.auths = auths
+    server.ThreadingHTTPServer(("127.0.0.1", MTX_AUTH_PORT), MtxAuthHandler).serve_forever()
+
+
 class Server(ThreadingMixIn, server.HTTPServer):
     """Dual-stack: doorspy.local resolves to the IPv6 address first on most clients, and a plain
     HTTPServer only listens on IPv4. Falls back to IPv4 if the kernel has no IPv6."""
@@ -525,12 +564,15 @@ class Server(ThreadingMixIn, server.HTTPServer):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    cam = Camera(load_settings())
-    cam.start()
     stream_auth, web_auth = AuthFile(STREAM_AUTH_FILE), AuthFile(WEB_AUTH_FILE)
     for a in (stream_auth, web_auth):
         if not os.path.exists(a.path):
             log.error("%s missing: nobody can log in with it (run install.sh)", a.path)
+    # forked before the camera exists; systemd stops it with the rest of the service's cgroup
+    multiprocessing.Process(target=serve_mtx_auth, args=((stream_auth, web_auth),), daemon=True,
+                            name="mtx-auth").start()
+    cam = Camera(load_settings())
+    cam.start()
     Handler.cam = cam
     Handler.auths = (stream_auth, web_auth)
     srv = Server(HTTP_PORT, Handler)

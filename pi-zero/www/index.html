@@ -183,7 +183,7 @@
       <div><label>Repeat</label><input type="password" id="pw-new2"></div>
     </div>
     <div class="actions"><button class="btn primary" id="pw-save">Change password</button></div>
-    <h2 style="margin-top:16px">Stream login (port 8080)</h2>
+    <h2 style="margin-top:16px">Stream login (port 8080, RTSP, WebRTC)</h2>
     <div class="grid2">
       <div><label>User</label><input type="text" id="st-user"></div>
       <div><label>New password (min 6)</label><input type="password" id="st-new"></div>
@@ -191,7 +191,7 @@
       <div><label>Your admin password</label><input type="password" id="st-admin"></div>
     </div>
     <div class="actions"><button class="btn primary" id="st-save">Change stream login</button></div>
-    <div class="hint">For <code>/api/stream.mjpeg</code> and <code>/api/snapshot.jpeg</code> on port 8080 (plain HTTP). The admin login works there too. Header for clients: <code id="st-header">Authorization: Basic …</code></div>
+    <div class="hint">For <code>/api/stream.mjpeg</code> and <code>/api/snapshot.jpeg</code> on port 8080 (plain HTTP), <code>rtsp://user:pass@…:8554/cam</code> and the WebRTC page on 8889; Frigate on the Pi 4 uses it too. The admin login works there too. Header for clients: <code id="st-header">Authorization: Basic …</code></div>
   </div>
   <div class="card wide">
     <div class="row" style="margin-top:0"><h2 style="margin:0;flex:1">Log</h2>

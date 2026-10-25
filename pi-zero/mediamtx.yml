@@ -1,4 +1,4 @@
-# doorspy MediaMTX: RTSP + WebRTC passthrough of the camera's H.264, nothing else.
+# doorspy MediaMTX: RTSP + WebRTC passthrough (login required) of the camera's H.264, nothing else.
 logLevel: info
 
 rtsp: true
@@ -11,19 +11,10 @@ hls: false
 srt: false
 moq: false
 
-authInternalUsers:
-  # only the local camera service may publish
-  - user: any
-    pass:
-    ips: ["127.0.0.1", "::1"]
-    permissions:
-      - action: publish
-  # anyone on the LAN may watch
-  - user: any
-    pass:
-    ips: []
-    permissions:
-      - action: read
+# Every client is checked by camera.py (127.0.0.1:8081, a child process): publish only from
+# localhost, read with the stream login (stream.auth) or the web UI's admin login, as on :8080.
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8081/mediamtx/auth
 
 paths:
   cam:

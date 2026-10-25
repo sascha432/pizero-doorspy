@@ -35,7 +35,7 @@ OV5647 ──► ISP ─┬─ main 1280×768 ─► HW H.264 ≤2.5 Mbit ─►
 
 The address is `192.168.0.216`, given out by the router's DHCP. Reserve it in the router. `doorspy.local` works too, through mDNS.
 
-Port 8080 needs HTTP Basic auth: the stream login **`guest` / `password`** (for stream clients) or the web UI's admin login. Change both on the web UI's System tab. Clients send `Authorization: Basic Z3Vlc3Q6cGFzc3dvcmQ=` (base64 of `guest:password`).
+Every stream needs a login: the stream login **`guest` / `password`** (for stream clients) or the web UI's admin login, on port 8080 (HTTP Basic auth) as well as RTSP and WebRTC. Change both on the web UI's System tab. Clients send `Authorization: Basic Z3Vlc3Q6cGFzc3dvcmQ=` (base64 of `guest:password`).
 
 | URL | What | Notes |
 |---|---|---|
@@ -43,8 +43,8 @@ Port 8080 needs HTTP Basic auth: the stream login **`guest` / `password`** (for 
 | `http://doorspy.local:8080/api/stream.mjpeg` | `multipart/x-mixed-replace` | Login `guest`. Boundary `frame`. Each part has `Content-Length`. |
 | `http://doorspy.local:8080/` | test page | The MJPEG stream shown in an `<img>`. |
 | `https://doorspy.local:8443/` | **config web UI** | Basic auth, default `admin` / `password` (change it on the System tab). Self-signed certificate, accept it once. Snapshot and stream are also served here, behind the login. |
-| `rtsp://doorspy.local:8554/cam` | H.264 over RTSP | UDP or TCP. Use this for Frigate and VLC. |
-| `http://doorspy.local:8889/cam` | WebRTC player page | Opens in a browser with low delay. |
+| `rtsp://guest:password@doorspy.local:8554/cam` | H.264 over RTSP | Login `guest`. UDP or TCP. Use this for Frigate and VLC. |
+| `http://doorspy.local:8889/cam` | WebRTC player page | Login `guest`. Opens in a browser with low delay. |
 
 Login: `ssh pispy@doorspy.local` with a key. See [docs/setup.md](docs/setup.md#access).
 

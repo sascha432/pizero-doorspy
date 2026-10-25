@@ -25,6 +25,11 @@ Frigate pulls the Zero's H.264 stream **once**. It records only when there's mot
    ```bash
    tar -C pi4/frigate -cf - . | ssh root@acidpi4 "mkdir -p /opt/frigate && tar -C /opt/frigate -xf -"
    ```
+   If the Zero's stream login isn't the default `guest` / `password` any more, put it into `/opt/frigate/.env` (not in the repo):
+   ```bash
+   DOORSPY_STREAM_USER=guest
+   DOORSPY_STREAM_PASSWORD=...
+   ```
    Then on the Pi 4:
    ```bash
    cd /opt/frigate && docker compose up -d && docker logs -f frigate
@@ -32,6 +37,30 @@ Frigate pulls the Zero's H.264 stream **once**. It records only when there's mot
    On the first start, the log shows the **admin password** for the web interface.
 
 4. **Web interface:** `https://acidpi4:8971`. The certificate is self-signed, so accept it. Log in as `admin` with the password from the log.
+
+## The Zero's stream login
+
+The Zero's RTSP stream needs a login (since 2026-10-25), so go2rtc pulls it as `rtsp://{FRIGATE_DOORSPY_USER}:{FRIGATE_DOORSPY_PASSWORD}@192.168.0.216:8554/cam`. Frigate fills in the two `FRIGATE_*` variables from the container's environment. `docker-compose.yml` sets them from `DOORSPY_STREAM_USER` / `DOORSPY_STREAM_PASSWORD` in `/opt/frigate/.env`, defaulting to the Zero's default login `guest` / `password`. Without the login, Frigate gets `401 Unauthorized` and shows no frames.
+
+**Updating an install from before 2026-10-25.** Do this on the Pi 4 *before* the Zero gets the new `mediamtx.yml` (`tools/deploy.sh`). The Zero ignores the login until then, so Frigate keeps recording throughout. Edit the files by hand instead of copying the repo's over, because Frigate's web interface can write to `config.yml`.
+
+1. `/opt/frigate/config/config.yml`, `go2rtc.streams.doorspy`: replace `rtsp://192.168.0.216:8554/cam` with
+   ```yaml
+         - rtsp://{FRIGATE_DOORSPY_USER}:{FRIGATE_DOORSPY_PASSWORD}@192.168.0.216:8554/cam
+   ```
+2. `/opt/frigate/docker-compose.yml`, under `environment:` next to `TZ`:
+   ```yaml
+         FRIGATE_DOORSPY_USER: ${DOORSPY_STREAM_USER:-guest}
+         FRIGATE_DOORSPY_PASSWORD: ${DOORSPY_STREAM_PASSWORD:-password}
+   ```
+3. `cd /opt/frigate && docker compose up -d`. This recreates the container with the new environment; `docker restart` would keep the old one.
+
+**Changing the stream login** on the Zero's System tab locks Frigate out until it has the new login too. Put it into `/opt/frigate/.env` (it isn't in the repo), then run `docker compose up -d` again:
+```bash
+DOORSPY_STREAM_USER=guest
+DOORSPY_STREAM_PASSWORD=yournewpassword
+```
+Check: `docker logs frigate 2>&1 | grep -i doorspy` shows no `401`, and the camera has a live picture.
 
 ## Home Assistant
 
@@ -62,7 +91,7 @@ Frigate pulls the Zero's H.264 stream **once**. It records only when there's mot
 
 | Setting | Value | Notes |
 |---|---|---|
-| `go2rtc.streams.doorspy` | `rtsp://192.168.0.216:8554/cam` | The Zero's MediaMTX. It's the only place the Zero's address appears. |
+| `go2rtc.streams.doorspy` | `rtsp://{FRIGATE_DOORSPY_USER}:{FRIGATE_DOORSPY_PASSWORD}@192.168.0.216:8554/cam` | The Zero's MediaMTX, with its stream login from `.env` (default `guest` / `password`, see `docker-compose.yml`). It's the only place the Zero's address appears. |
 | `detect` | `enabled: true`, 1280×768 at 5 fps | **Must be switched on explicitly, because 0.18 defaults to off.** Full stream size, so faces stay big enough to recognise. Lower it, e.g. to 640×384, if the CPU is overloaded. |
 | `detectors.cpu.num_threads` | 3 | Leaves one core for Home Assistant and the rest. |
 | `objects.track` | `person` | Add more objects (e.g. `car`, `dog`) as needed. |

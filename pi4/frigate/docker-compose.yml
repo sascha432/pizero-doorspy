@@ -11,6 +11,9 @@ services:
       - "host.docker.internal:host-gateway"   # Mosquitto runs on the host, not in Docker
     environment:
       TZ: America/Vancouver
+      # the Zero's stream login for go2rtc's RTSP pull; put DOORSPY_STREAM_PASSWORD=... in .env next to this file
+      FRIGATE_DOORSPY_USER: ${DOORSPY_STREAM_USER:-guest}
+      FRIGATE_DOORSPY_PASSWORD: ${DOORSPY_STREAM_PASSWORD:-password}
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config:/config

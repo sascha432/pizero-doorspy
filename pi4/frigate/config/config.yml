@@ -13,10 +13,11 @@ detectors:
     num_threads: 3
 
 # go2rtc pulls the Zero's stream ONCE; Frigate, live view and any viewer read the restream.
+# The Zero's RTSP needs its stream login (guest by default), set in /opt/frigate/.env.
 go2rtc:
   streams:
     doorspy:
-      - rtsp://192.168.0.216:8554/cam
+      - rtsp://{FRIGATE_DOORSPY_USER}:{FRIGATE_DOORSPY_PASSWORD}@192.168.0.216:8554/cam
 
 cameras:
   doorspy:          # same name as the go2rtc stream -> used for low-latency live view

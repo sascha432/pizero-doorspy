@@ -76,7 +76,7 @@ It copies `pi-zero/` over and runs `install.sh`, which:
 - installs the apt packages (`python3-picamera2`, `python3-av`, `python3-simplejpeg`, `python3-numpy`, the GPIO/MQTT ones, `openssl`)
 - installs MediaMTX into `/opt/mediamtx`
 - copies the files into place
-- creates the web UI's login (`admin` / `password`), the stream login for port 8080 (`guest` / `password`) and the self-signed certificate if they don't exist yet
+- creates the web UI's login (`admin` / `password`), the stream login for port 8080, RTSP and WebRTC (`guest` / `password`) and the self-signed certificate if they don't exist yet
 - turns WiFi power saving off
 - speeds up booting: disables cloud-init after the first boot and replaces the netplan-backed USB connection with a plain NetworkManager keyfile (WiFi up after about 2¼ min before this)
 - turns on the serial console in `config.txt`
@@ -113,6 +113,7 @@ The login is `pispy` with the default password `password`, used for password log
 | No network at all | Serial console: USB-UART adapter RX → pin 8 (GPIO14), TX → pin 10 (GPIO15), GND → pin 6, 115200 baud. Needs `enable_uart=1` in `config.txt`, which you can also add from the PC on the card's `bootfs` partition. |
 | Camera service logs | `journalctl -u doorspy-cam -f` and `journalctl -u mediamtx -f`, or the System tab of the web UI |
 | A stream client gets `401` from port 8080 | The stream needs a login since 2026-10-20: `guest` / `password` by default (System tab to change). `curl -u guest:password http://doorspy.local:8080/api/snapshot.jpeg`. |
+| RTSP / WebRTC client gets `401` | Since 2026-10-25 they need the same login: `rtsp://guest:password@doorspy.local:8554/cam`. If even a correct login fails, `journalctl -u mediamtx` shows why the check on `127.0.0.1:8081` failed (`camera.py` not running?). Frigate on the Pi 4 needs the login too, see [pi4.md](pi4.md#the-zeros-stream-login). |
 | Web UI: browser keeps asking for a login | Wrong password. Forgot it: `sudo rm /var/lib/doorspy/web.auth` and redeploy, which recreates `admin` / `password`. |
 | Web UI: certificate error after the IP changed | The certificate names `doorspy.local` and the IP at install time. Use the name, or `sudo rm /etc/doorspy/web.key` and redeploy. |
 | Web UI: "doorspy-io not running" on the Lights / Sensors tabs | `systemctl status doorspy-io` and `journalctl -u doorspy-io`. The socket is `/run/doorspy/io.sock`; it must be owned by `pispy`. |

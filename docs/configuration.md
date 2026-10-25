@@ -9,7 +9,7 @@ Served by `camera.py` (module `pi-zero/webui.py`, page `pi-zero/www/index.html`)
 | File on the Pi | Owner | What |
 |---|---|---|
 | `/var/lib/doorspy/web.auth` | `pispy`, mode 600 | `user:salt:pbkdf2-sha256`. Created by `install.sh` as **`admin` / `password`** (the same default as the ssh login); change it on the System tab. Delete the file and redeploy to reset it. |
-| `/var/lib/doorspy/stream.auth` | `pispy`, mode 600 | Same format: the login for **port 8080** (MJPEG, snapshot, test page), meant for stream clients. Created as **`guest` / `password`**; change it on the System tab (needs your admin password). The admin login is accepted on 8080 as well; the guest login is not accepted on 8443. |
+| `/var/lib/doorspy/stream.auth` | `pispy`, mode 600 | Same format: the login for **port 8080** (MJPEG, snapshot, test page) and **RTSP / WebRTC** (MediaMTX), meant for stream clients. Created as **`guest` / `password`**; change it on the System tab (needs your admin password). The admin login is accepted on 8080, RTSP and WebRTC as well; the guest login is not accepted on 8443. |
 | `/etc/doorspy/web.crt`, `web.key` | `pispy` | Self-signed EC P-256 certificate for `doorspy.local` and the current IP, 10 years. Delete `web.key` and redeploy for a new one. The browser warns once; accept it. |
 | `/var/lib/doorspy/lights.json` | root | Last state of the power LED and RGB (on/off, brightness, colour, effect), written by `doorspy-io` on every command and restored when it starts — every Save on the Lights/Sensors tabs restarts it. |
 | `/var/lib/doorspy/camera.json` | `pispy` | Stream settings and image controls set in the UI. Overrides `DEFAULTS` in `camera.py`. Empty = defaults. (`/var/lib/doorspy` is the service's `StateDirectory`, so it can replace files there atomically; `/etc/doorspy` stays root's.) |
@@ -87,7 +87,7 @@ On the Pi this is installed as `/etc/doorspy/mediamtx.yml`, and the program live
 | `rtsp`, `rtspTransports` | on, `[udp, tcp]` | Port 8554, plus 8000/8001 for UDP RTP/RTCP. |
 | `webrtc` | on | Port 8889 for the page and signalling, 8189/UDP for media. It passes the H.264 through without re-encoding. |
 | `rtmp`, `hls`, `srt`, `moq` | off | Not needed. HLS would also cost CPU and memory on the Zero. |
-| `authInternalUsers` | publish: localhost only; read: anyone | Only `camera.py` can publish to `cam`, and anyone on the LAN can watch. Add a `user`/`pass` to the read entry to require a login. |
+| `authMethod`, `authHTTPAddress` | `http`, `http://127.0.0.1:8081/mediamtx/auth` | MediaMTX asks `camera.py` about every client: publishing only from localhost, watching only with the stream or admin login (the files above), so a password changed on the System tab applies to RTSP and WebRTC at once. The check runs in a child process of `camera.py`, listening on localhost only, because PyAV blocks the camera process while it connects the very RTSP output MediaMTX asks about. |
 | `paths.cam` | `source: publisher` | The stream `camera.py` publishes to. |
 
 Each RTSP or WebRTC viewer adds another copy of the stream, about 1–2.5 Mbit/s each, to the WiFi link. Once the Pi 4 is set up, have it pull the stream **once** and let it serve the other viewers.
